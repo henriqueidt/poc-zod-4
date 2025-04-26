@@ -104,3 +104,12 @@ const strboolCustom = z.stringbool({
   truthy: ["yes", "true", "1"],
   falsy: ["no", "false", "0"],
 });
+
+// Optional values
+const optionalSchema = z.string().optional();
+
+// Nullable values
+const nullableSchema = z.string().nullable();
+
+// Nullish values (optional or nullable)
+const nullishSchema = z.string().nullish();
