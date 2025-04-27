@@ -113,3 +113,107 @@ const nullableSchema = z.string().nullable();
 
 // Nullish values (optional or nullable)
 const nullishSchema = z.string().nullish();
+
+// Template literals
+// `hello, ${string}`
+const helloTemplateLiteral = z.templateLiteral(["hello, ", z.string()]);
+const cssUnits = z.enum(["px", "em", "rem", "%"]);
+// `10px` | `1.5em` | `2rem` | `50%`
+const cssValue = z.templateLiteral([z.number(), cssUnits]);
+const emailValue = z.templateLiteral([
+  z.string().min(5),
+  "@",
+  z.string().min(10),
+]);
+
+// Object vs interface
+// Object - value can be set undefined or omitted
+z.object({ name: z.string().optional() }); // { name?: string | undefined }
+// Interface - For optional value to be able to get ommited, needs to add `?`
+z.interface({ "name?": z.string() }); // { name?: string | undefined }
+z.interface({ name: z.string() }); // { name: string | undefined }
+
+// Unrecognized keys are removed from parsed result
+const UserInterface = z.interface({
+  id: z.string(),
+  name: z.string(),
+});
+UserInterface.parse({ id: "123", name: "John Doe", age: 30 }); // { id: '123', name: 'John Doe' }
+
+// Strict schemas throw an error if unrecognized keys are present
+const UserStrictInterface = z.strictInterface({
+  id: z.string(),
+  name: z.string(),
+});
+UserStrictInterface.parse({ id: "123", name: "John Doe", age: 30 }); // throws error
+
+// Loose schmeas allow unrecognized keys
+const UserLooseInterface = z.looseInterface({
+  id: z.string(),
+});
+UserLooseInterface.parse({ id: "123", name: "John Doe", age: 30 }); // { id: '123', name: 'John Doe', age: 30 }
+
+const idSchema = UserInterface.def.shape.id; // access to the internal schema
+const keySchema = UserInterface.keyof(); // creates an enum shcema for the keys
+
+// EXTENDS
+const UserWithAge = UserInterface.extend({ age: z.number() }); // extends the schema with a new key
+// extend can be used to overwrite existing keys too
+const UserOverwrittenName = UserInterface.extend({
+  name: z.string().min(5),
+}); // extends the schema with a new key
+// another schema can be passed to extend a schema
+// if both have the same key, the last one will be used
+const WithAddress = z.interface({ address: z.string() });
+const UserWithAddress = UserInterface.extend(WithAddress);
+
+// PICK - creates a new schema with only specific keys
+const UserNameOnly = UserInterface.pick({ name: true }); // { name: string }
+// OMIT - creates a new schema, removing specific keys
+const UserWithoutName = UserInterface.omit({ name: true }); // { id: string }
+
+// PARTIAL - Makes keys optional
+const UserPartial = UserInterface.partial(); // { id?: string, name?: string }
+// can also make only some fields optional
+const UserPartialName = UserInterface.partial({ name: true }); // { id: string, name?: string }
+
+// REQUIRED - Makes keys required
+const UserRequired = UserPartial.required(); // { id: string, name: string }
+// can also make only some fields required
+const UserRequiredName = UserPartial.required({ name: true }); // { id?: string, name: string }
+
+// RECURSIVE TYPES USING GETTERS
+const RecursiveUserSchema = z.interface({
+  id: z.string(),
+  name: z.string(),
+  get friends() {
+    return z.array(RecursiveUserSchema);
+  },
+});
+type RecursiveUser = z.infer<typeof RecursiveUserSchema>; // { id: string, name: string, friends: RecursiveUser[] }
+// mutually recursion is also possible
+const RecursiveUserSchema2 = z.interface({
+  id: z.string(),
+  name: z.string(),
+  get accounts() {
+    return z.array(RecursiveAccountSchema);
+  },
+});
+const RecursiveAccountSchema = z.interface({
+  id: z.string(),
+  get user() {
+    return RecursiveUserSchema2;
+  },
+});
+
+// ARRAY SCHEMAS
+const stringArraySchema = z.array(z.string()); // string[]
+// min, max
+const stringArrayMinMaxSchema = z.array(z.string()).min(1).max(10);
+// exact length
+const stringArrayExactLengthSchema = z.array(z.string()).length(3);
+
+// TUPLE SCHEMAS - fixed length arrays with specific types for each index
+const tupleSchema = z.tuple([z.string(), z.number()]); // [string, number]
+// can have a variadic rest argument
+const tupleSchemaWithRest = z.tuple([z.string()], z.number()); // [string, ...number[]]
