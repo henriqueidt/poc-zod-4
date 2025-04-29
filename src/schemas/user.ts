@@ -217,3 +217,24 @@ const stringArrayExactLengthSchema = z.array(z.string()).length(3);
 const tupleSchema = z.tuple([z.string(), z.number()]); // [string, number]
 // can have a variadic rest argument
 const tupleSchemaWithRest = z.tuple([z.string()], z.number()); // [string, ...number[]]
+
+// Unions - represents logical OR
+const stringOrNumberSchema = z.union([z.string(), z.number()]); // string | number
+
+// Discriminated unions - logical OR with common key
+const Result = z.discriminatedUnion([
+  z.interface({ status: z.literal("success"), data: z.string() }),
+  z.interface({ status: z.literal("failed"), error: z.string() }),
+]);
+function handleResult(result: z.infer<typeof Result>) {
+  if (result.status === "success") {
+    console.log(result.data);
+  } else {
+    console.log(result.error);
+  }
+}
+
+// Intersection - represents logical AND
+const Person = z.interface({ name: z.string() });
+const Employee = z.interface({ id: z.string() });
+const EmployeePerson = z.intersection(Person, Employee); // { name: string, id: string }
