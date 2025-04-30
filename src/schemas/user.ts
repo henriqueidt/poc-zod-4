@@ -238,3 +238,88 @@ function handleResult(result: z.infer<typeof Result>) {
 const Person = z.interface({ name: z.string() });
 const Employee = z.interface({ id: z.string() });
 const EmployeePerson = z.intersection(Person, Employee); // { name: string, id: string }
+
+// Records - used to validate record types like Record<string, number>
+const keys = z.enum(["id", "name"]);
+// zod will validate that all keys are present
+const User2 = z.record(keys, z.string()); // { id: string, name: string }
+// to not validate all keys, we need to use partialRecord
+const UserWithPartial = z.partialRecord(keys, z.string()); // { id?: string, name?: string }
+
+// Maps
+const mapSchema = z.map(z.string(), z.number()); // Map<string, number>
+type MapType = z.infer<typeof mapSchema>;
+const map: MapType = new Map();
+map.set("key", 1);
+mapSchema.parse(map);
+
+// Sets
+const setSchema = z.set(z.string()).min(5).max(10); // Set<string>
+type setType = z.infer<typeof setSchema>;
+const set: setType = new Set();
+set.add("a");
+setSchema.parse(set);
+
+// InstanceOf - can be used to validate an input is an instance of a class
+class UserClass {
+  name!: string;
+}
+const userSchema1 = z.instanceof(UserClass);
+userSchema1.parse(new UserClass());
+
+// Refinements - use custom validations
+const refinedString = z.string().refine((val) => val.length < 100);
+// can customize the error message
+const refinedCustomError = z.string().refine((val) => val.length < 100, {
+  error: "invalid message",
+});
+// by default zod will go through every refinement
+const multipleRefinementsString = z
+  .string()
+  .refine((val) => val.length > 8)
+  .refine((val) => val === val.toLowerCase());
+/* [
+  { "code": "custom", "message": "Too short!" },
+  { "code": "custom", "message": "Must be lowercase" }
+] */
+// use the abort parameter to mark a refinement as a stoppable
+const refinementsWithAbort = z
+  .string()
+  .refine((val) => val.length > 8, { abort: true })
+  .refine((val) => val === val.toLowerCase());
+// [{ code: "custom", message: "Too short!" }];
+
+// refinements can also be async
+const userId = z.string().refine(async (id) => {
+  // verify that ID exists in database
+  return true;
+});
+// notice it is needed to use parseAsync to parse with async refinements
+const result = await userId.parseAsync("1234");
+
+// CHECK - is a more verbose version of refine
+const UniqueStringArray = z.array(z.string()).check((ctx) => {
+  if (ctx.value.length > 3) {
+    ctx.issues.push({
+      code: "too_big",
+      maximum: 3,
+      origin: "array",
+      inclusive: true,
+      message: "Too many items",
+      input: ctx.value,
+    });
+  }
+
+  if (ctx.value.length !== new Set(ctx.value).size) {
+    ctx.issues.push({
+      code: "custom",
+      message: `No duplicates allowed.`,
+      input: ctx.value,
+      continue: true, // make this issue continuable (default: false)
+    });
+  }
+});
+
+// PIPES - allow to chain multiple schemas
+const stringLength = z.string().pipe(z.transform((val) => val.length));
+stringLength.parse("abcde"); // 5
