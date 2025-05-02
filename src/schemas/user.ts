@@ -323,3 +323,50 @@ const UniqueStringArray = z.array(z.string()).check((ctx) => {
 // PIPES - allow to chain multiple schemas
 const stringLength = z.string().pipe(z.transform((val) => val.length));
 stringLength.parse("abcde"); // 5
+
+// TRANSFORMS - It transforms data, instead of validating
+const transformToString = z.transform((val) => String(val));
+transformToString.parse(123); // "123"
+transformToString.parse(true); // "true"
+// validation can be done inside transforms using ctx
+const coercedInt = z.transform((val, ctx) => {
+  try {
+    const parsed = Number.parseInt(String(val));
+    return parsed;
+  } catch (e) {
+    ctx.issues.push({
+      code: "custom",
+      message: "Not a number",
+      input: val,
+    });
+
+    // this is a special constant with type `never`
+    // returning it lets you exit the transform without impacting the inferred return type
+    return z.NEVER;
+  }
+});
+// trasnforms can be used with pipe, to first validate and then transform data
+const strToLength = z.string().pipe(z.transform((val) => val.length));
+// can be abstracted with just transform function
+const transformStrToLength = z.string().transform((val) => val.length);
+// transform can also be async (need to use parseAsync to parse data then)
+const idToUser = z.string().transform(async (id) => {
+  // fetch user from database
+  // return db.getUserById(id);
+});
+const user = await idToUser.parseAsync("abc123");
+
+// DEFAULTS - set a default value to a schema
+const defaultAnimalSchema = z.string().default("dog");
+defaultAnimalSchema.parse(undefined); // "dog"
+// if a function is passed, it will be reexecuted on every validation
+const randomNumberSchema = z.number().default(Math.random);
+
+// CATCH - very similar to default, can be used to return a value in case of validation error
+const numberSchemaWithCatch = z.number().catch(5);
+numberSchemaWithCatch.parse("dog"); // 5
+// if a function is passed, it will execute on every validation
+const numberWithRandomCatch = z.number().catch((ctx) => {
+  console.log(ctx.issues); // the caught ZodError
+  return Math.random();
+});
